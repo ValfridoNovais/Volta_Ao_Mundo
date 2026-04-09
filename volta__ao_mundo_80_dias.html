@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A Volta ao Mundo em 80 Dias | Etapa da Índia</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+
+    <style>
+        :root {
+            --gold: #cda65a;
+            --gold-soft: #e7c98f;
+            --red: #8f2d24;
+            --beige: #f7eed9;
+            --blue-dark: #10253f;
+            --blue-ocean: #245f80;
+            --ink: #1f1d1b;
+            --glass: rgba(16, 37, 63, 0.8);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: "Source Sans 3", sans-serif;
+            color: var(--ink);
+            background:
+                radial-gradient(circle at 15% 10%, #f4dcc0 0%, #d7b47c 24%, #7e5328 62%, #2c1b0f 100%);
+        }
+
+        #app {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            filter: saturate(1.05) contrast(1.02);
+        }
+
+        .top-panel {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            right: 16px;
+            z-index: 900;
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 12px;
+            pointer-events: none;
+        }
+
+        .title-card {
+            pointer-events: auto;
+            padding: 14px 18px;
+            border: 1px solid rgba(231, 201, 143, 0.55);
+            border-radius: 14px;
+            background: linear-gradient(120deg, rgba(16, 37, 63, 0.93), rgba(24, 54, 91, 0.82));
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.34);
+            backdrop-filter: blur(8px);
+        }
+
+        .title-card h1 {
+            font-family: "Cinzel", serif;
+            font-size: clamp(1.1rem, 2.8vw, 1.75rem);
+            color: var(--gold-soft);
+            line-height: 1.1;
+        }
+
+        .title-card p {
+            margin-top: 4px;
+            font-size: clamp(0.82rem, 2vw, 1rem);
+            color: #f3ead7;
+        }
+
+        .progress-wrap {
+            margin-top: 10px;
+        }
+
+        .progress-head {
+            display: flex;
+            justify-content: space-between;
+            color: #fbf4e8;
+            font-size: 0.86rem;
+            margin-bottom: 6px;
+        }
+
+        .progress-track {
+            width: 100%;
+            height: 10px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.25);
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            width: 0;
+            background: linear-gradient(90deg, #f2d5a2, #cda65a);
+            transition: width 500ms ease;
+        }
+
+        .fullscreen-btn {
+            pointer-events: auto;
+            align-self: start;
+            border: 1px solid rgba(231, 201, 143, 0.65);
+            background: var(--glass);
+            color: #fff;
+            border-radius: 999px;
+            padding: 10px 14px;
+            font-size: 0.92rem;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 10px 22px rgba(0, 0, 0, 0.35);
+            transition: transform 180ms ease, background 180ms ease;
+        }
+
+        .fullscreen-btn:hover {
+            transform: translateY(-1px);
+            background: rgba(20, 48, 81, 0.95);
+        }
+
+        .event-pin {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f7f0df;
+            color: var(--blue-dark);
+            font-weight: 800;
+            font-size: 0.9rem;
+            border: 3px solid var(--blue-dark);
+            box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
+            transition: transform 180ms ease, background 180ms ease, border-color 180ms ease;
+        }
+
+        .event-pin:hover {
+            transform: scale(1.12);
+            background: var(--gold-soft);
+        }
+
+        .event-pin.visited {
+            background: #ecd5b1;
+            border-color: #93672e;
+        }
+
+        .event-pin.current {
+            background: #fff;
+            border-color: var(--red);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(143, 45, 36, 0.5), 0 8px 18px rgba(0, 0, 0, 0.35); }
+            70% { box-shadow: 0 0 0 18px rgba(143, 45, 36, 0), 0 8px 18px rgba(0, 0, 0, 0.35); }
+            100% { box-shadow: 0 0 0 0 rgba(143, 45, 36, 0), 0 8px 18px rgba(0, 0, 0, 0.35); }
+        }
+
+        .pin-label {
+            margin-top: -44px;
+            transform: translateX(-24%);
+            color: #fffdf8;
+            background: rgba(16, 37, 63, 0.86);
+            border: 1px solid rgba(231, 201, 143, 0.6);
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 3px 8px;
+            white-space: nowrap;
+            pointer-events: none;
+        }
+
+        .traveler-shell {
+            width: 42px;
+            height: 42px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            filter: drop-shadow(0 6px 6px rgba(0, 0, 0, 0.35));
+        }
+
+        .traveler-glyph {
+            font-size: 1.7rem;
+            transform-origin: center center;
+        }
+
+        .traveler-glyph.sailing {
+            animation: sailing 900ms ease-in-out infinite alternate;
+        }
+
+        .traveler-glyph.land {
+            animation: landMove 700ms ease-in-out infinite alternate;
+        }
+
+        @keyframes sailing {
+            from { transform: translateY(1px) rotate(-8deg); }
+            to { transform: translateY(-2px) rotate(8deg); }
+        }
+
+        @keyframes landMove {
+            from { transform: translateY(1px) rotate(-4deg); }
+            to { transform: translateY(-3px) rotate(4deg); }
+        }
+
+        #blocker {
+            position: absolute;
+            inset: 0;
+            display: none;
+            z-index: 995;
+            cursor: wait;
+        }
+
+        #blocker.active {
+            display: block;
+        }
+
+        .modal {
+            position: absolute;
+            inset: 0;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(8, 16, 28, 0.66);
+            backdrop-filter: blur(4px);
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 220ms ease, visibility 220ms ease;
+        }
+
+        .modal.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-card {
+            width: min(940px, 95vw);
+            max-height: 88vh;
+            overflow: hidden;
+            border-radius: 18px;
+            border: 2px solid rgba(231, 201, 143, 0.78);
+            box-shadow: 0 26px 52px rgba(0, 0, 0, 0.4);
+            display: grid;
+            grid-template-columns: 1.1fr 1fr;
+            background: #fffaf0;
+            transform: translateY(16px);
+            transition: transform 260ms ease;
+        }
+
+        .modal.show .modal-card {
+            transform: translateY(0);
+        }
+
+        .media-pane {
+            min-height: 320px;
+            background: #1b3453;
+            position: relative;
+            border-right: 2px solid rgba(205, 166, 90, 0.5);
+        }
+
+        .media-pane img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: none;
+        }
+
+        .placeholder {
+            position: absolute;
+            inset: 18px;
+            border: 2px dashed rgba(231, 201, 143, 0.6);
+            border-radius: 12px;
+            color: #f6e7c8;
+            display: grid;
+            place-content: center;
+            text-align: center;
+            padding: 12px;
+        }
+
+        .text-pane {
+            padding: 22px 22px 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .tag {
+            color: var(--red);
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            font-size: 0.8rem;
+        }
+
+        .event-title {
+            font-family: "Cinzel", serif;
+            color: var(--blue-dark);
+            font-size: clamp(1.2rem, 2.2vw, 1.6rem);
+            line-height: 1.2;
+            border-bottom: 2px solid rgba(205, 166, 90, 0.45);
+            padding-bottom: 8px;
+        }
+
+        .event-desc {
+            line-height: 1.55;
+            font-size: 1rem;
+            color: #2e2a24;
+            flex: 1;
+            overflow: auto;
+        }
+
+        .modal-controls {
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(16, 37, 63, 0.16);
+        }
+
+        .nav-btn {
+            border: 2px solid var(--blue-dark);
+            background: #fff;
+            color: var(--blue-dark);
+            border-radius: 10px;
+            padding: 8px 12px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .nav-btn:hover:not(:disabled) {
+            background: var(--blue-dark);
+            color: #fff;
+        }
+
+        .nav-btn:disabled {
+            opacity: 0.34;
+            cursor: not-allowed;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: 2px solid var(--gold-soft);
+            background: rgba(16, 37, 63, 0.85);
+            color: #fff;
+            font-size: 1.2rem;
+            cursor: pointer;
+            z-index: 3;
+        }
+
+        .leaflet-control-attribution {
+            background: rgba(255, 255, 255, 0.68) !important;
+            border-top-left-radius: 8px !important;
+            font-size: 0.64rem !important;
+        }
+
+        @media (max-width: 860px) {
+            .top-panel {
+                grid-template-columns: 1fr;
+            }
+
+            .fullscreen-btn {
+                justify-self: start;
+            }
+
+            .modal-card {
+                grid-template-columns: 1fr;
+                max-height: 92vh;
+            }
+
+            .media-pane {
+                min-height: 220px;
+                border-right: none;
+                border-bottom: 2px solid rgba(205, 166, 90, 0.5);
+            }
+
+            .event-desc {
+                max-height: 32vh;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div id="map"></div>
+        <div id="blocker"></div>
+
+        <div class="top-panel">
+            <div class="title-card">
+                <h1>A Volta ao Mundo em 80 Dias: Etapa da Índia</h1>
+                <p>Mapa interativo com percurso animado por mar e por terra, em 7 eventos.</p>
+                <div class="progress-wrap">
+                    <div class="progress-head">
+                        <span id="progress-text">Progresso: 0 de 7</span>
+                        <span id="terrain-text">Aguardando partida</span>
+                    </div>
+                    <div class="progress-track">
+                        <div class="progress-fill" id="progress-fill"></div>
+                    </div>
+                </div>
+            </div>
+            <button class="fullscreen-btn" id="fullscreen-btn">
+                <span id="fs-icon">⛶</span>
+                <span id="fs-label">Tela Cheia</span>
+            </button>
+        </div>
+
+        <div class="modal" id="event-modal">
+            <div class="modal-card">
+                <button class="close-btn" id="close-modal">✕</button>
+                <div class="media-pane">
+                    <img id="event-image" alt="Imagem do evento">
+                    <div class="placeholder" id="image-placeholder">
+                        <strong>Imagem não encontrada</strong>
+                        <span id="placeholder-file">Adicione: img/india1.png</span>
+                    </div>
+                </div>
+                <div class="text-pane">
+                    <span class="tag" id="event-tag">EVENTO 1 DE 7</span>
+                    <h2 class="event-title" id="event-title">Título do evento</h2>
+                    <p class="event-desc" id="event-desc">Descrição do evento.</p>
+                    <div class="modal-controls">
+                        <button class="nav-btn" id="prev-btn">◀ Voltar</button>
+                        <button class="nav-btn" id="next-btn">Avançar ▶</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script>
+        const startPoint = {
+            lat: 15.8,
+            lng: 61.8,
+            terrain: "sea",
+            vehicle: "⛵"
+        };
+
+        const events = [
+            {
+                title: "1. Chegada à Índia (Navio)",
+                desc: "Após atravessar o Oceano Arábico, o navio aproxima-se da costa de Bombaim. A jornada na Índia começa com a chegada pelo mar.",
+                img: "img/india1.png",
+                lat: 18.48,
+                lng: 71.82,
+                terrain: "sea",
+                vehicle: "⛵",
+                place: "Costa de Bombaim"
+            },
+            {
+                title: "2. O Criado Observa uma Festa de Rua",
+                desc: "Passepartout caminha pela cidade e observa uma procissão/festival tradicional, com música e elementos culturais locais.",
+                img: "img/india2.png",
+                lat: 19.42,
+                lng: 72.88,
+                terrain: "land",
+                vehicle: "🚶",
+                place: "Bombaim"
+            },
+            {
+                title: "3. Templo e Conflito Cultural",
+                desc: "O criado entra em um templo sem perceber regras importantes. Por não respeitar costumes religiosos locais, é repreendido e precisa sair rapidamente.",
+                img: "img/india3.png",
+                lat: 18.86,
+                lng: 73.32,
+                terrain: "land",
+                vehicle: "🏃",
+                place: "Malabar Hill"
+            },
+            {
+                title: "4. Trem Interrompido e Elefante",
+                desc: "A viagem de trem é interrompida porque os trilhos acabaram. O patrão consegue um elefante e um guia local para seguir caminho por terra.",
+                img: "img/india4.png",
+                lat: 22.9,
+                lng: 78.1,
+                terrain: "land",
+                vehicle: "🚂",
+                place: "Interior da Índia"
+            },
+            {
+                title: "5. Resgate da Mulher",
+                desc: "O grupo encontra uma mulher sendo preparada para sacrifício. O criado organiza o resgate com cuidado, segue viagem, passa por uma pousada e retorna ao percurso.",
+                img: "img/india5.png",
+                lat: 24.2,
+                lng: 82.8,
+                terrain: "land",
+                vehicle: "🐘",
+                place: "Rota para o leste"
+            },
+            {
+                title: "6. Prisão e Tribunal",
+                desc: "Ao chegar a Calcutá, o grupo é preso por causa do ocorrido no templo. No tribunal, a fiança é paga e todos são libertados para continuar a jornada.",
+                img: "img/india6.png",
+                lat: 22.57,
+                lng: 88.36,
+                terrain: "land",
+                vehicle: "🚂",
+                place: "Calcutá"
+            },
+            {
+                title: "7. Partida de Navio",
+                desc: "Com a situação resolvida, o grupo embarca e parte da Índia pela Baía de Bengala, continuando a volta ao mundo.",
+                img: "img/india7.png",
+                lat: 21.8,
+                lng: 89.9,
+                terrain: "sea",
+                vehicle: "⛵",
+                place: "Baía de Bengala"
+            }
+        ];
+
+        let currentEventIndex = -1;
+        let currentPosition = [startPoint.lat, startPoint.lng];
+        let isMoving = false;
+
+        const markerRefs = [];
+        const progressFill = document.getElementById("progress-fill");
+        const progressText = document.getElementById("progress-text");
+        const terrainText = document.getElementById("terrain-text");
+        const modalEl = document.getElementById("event-modal");
+
+        const map = L.map("map", {
+            zoomControl: true,
+            minZoom: 3,
+            maxZoom: 12,
+            zoomSnap: 0.25,
+            maxBoundsViscosity: 1
+        }).setView([21.0, 76.0], 4);
+
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            maxZoom: 19,
+            attribution: "&copy; OpenStreetMap contributors"
+        }).addTo(map);
+
+        map.setMaxBounds([
+            [-20, 25],
+            [48, 125]
+        ]);
+
+        function pointIcon(number) {
+            return L.divIcon({
+                className: "point-wrapper",
+                html: `<div class="event-pin">${number}</div><div class="pin-label">Evento ${number}</div>`,
+                iconSize: [64, 50],
+                iconAnchor: [17, 17]
+            });
+        }
+
+        function travelerIcon(vehicle, terrain) {
+            const className = terrain === "sea" ? "sailing" : "land";
+            return L.divIcon({
+                className: "traveler-shell-wrap",
+                html: `<div class="traveler-shell"><div class="traveler-glyph ${className}">${vehicle}</div></div>`,
+                iconSize: [42, 42],
+                iconAnchor: [21, 21]
+            });
+        }
+
+        const traveler = L.marker(currentPosition, {
+            icon: travelerIcon(startPoint.vehicle, startPoint.terrain),
+            interactive: false,
+            zIndexOffset: 1200
+        }).addTo(map);
+
+        function drawRoute() {
+            const points = [[startPoint.lat, startPoint.lng], ...events.map((e) => [e.lat, e.lng])];
+            for (let i = 1; i < points.length; i += 1) {
+                const destination = events[i - 1];
+                const isSea = destination.terrain === "sea";
+                L.polyline([points[i - 1], points[i]], {
+                    color: isSea ? "#154f77" : "#8f2d24",
+                    weight: isSea ? 5 : 4,
+                    opacity: 0.9,
+                    dashArray: isSea ? "10 9" : "4 8"
+                }).addTo(map);
+            }
+        }
+
+        function createEventMarkers() {
+            events.forEach((event, index) => {
+                const marker = L.marker([event.lat, event.lng], {
+                    icon: pointIcon(index + 1),
+                    keyboard: true
+                }).addTo(map);
+
+                marker.on("click", () => goToEvent(index));
+                markerRefs.push(marker);
+            });
+            refreshMarkerVisualState();
+        }
+
+        function refreshMarkerVisualState() {
+            markerRefs.forEach((marker, idx) => {
+                const pin = marker.getElement()?.querySelector(".event-pin");
+                if (!pin) return;
+                pin.classList.toggle("visited", idx <= currentEventIndex);
+                pin.classList.toggle("current", idx === currentEventIndex);
+            });
+        }
+
+        function updateProgress() {
+            const value = Math.max(0, currentEventIndex + 1);
+            progressFill.style.width = `${(value / events.length) * 100}%`;
+            progressText.textContent = `Progresso: ${value} de ${events.length}`;
+
+            if (currentEventIndex < 0) {
+                terrainText.textContent = "Aguardando partida";
+            } else {
+                const terrainLabel = events[currentEventIndex].terrain === "sea" ? "Trecho marítimo" : "Trecho terrestre";
+                terrainText.textContent = `${terrainLabel} • ${events[currentEventIndex].place}`;
+            }
+        }
+
+        function lerp(a, b, t) {
+            return a + (b - a) * t;
+        }
+
+        function animateTraveler(from, to, durationMs, terrain, vehicle) {
+            traveler.setIcon(travelerIcon(vehicle, terrain));
+            const start = performance.now();
+
+            return new Promise((resolve) => {
+                function frame(now) {
+                    const progress = Math.min((now - start) / durationMs, 1);
+                    const eased = progress < 0.5
+                        ? 2 * progress * progress
+                        : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+
+                    const lat = lerp(from[0], to[0], eased);
+                    const lng = lerp(from[1], to[1], eased);
+                    traveler.setLatLng([lat, lng]);
+
+                    if (progress < 1) {
+                        requestAnimationFrame(frame);
+                    } else {
+                        resolve();
+                    }
+                }
+                requestAnimationFrame(frame);
+            });
+        }
+
+        async function goToEvent(targetIndex) {
+            if (isMoving) return;
+            if (targetIndex < 0 || targetIndex >= events.length) return;
+
+            if (targetIndex === currentEventIndex) {
+                openModal(targetIndex);
+                return;
+            }
+
+            isMoving = true;
+            document.getElementById("blocker").classList.add("active");
+            closeModal();
+
+            const target = events[targetIndex];
+            const destination = [target.lat, target.lng];
+            const duration = target.terrain === "sea" ? 3000 : 2200;
+
+            await animateTraveler(currentPosition, destination, duration, target.terrain, target.vehicle);
+
+            currentPosition = destination;
+            currentEventIndex = targetIndex;
+            refreshMarkerVisualState();
+            updateProgress();
+            openModal(targetIndex);
+
+            isMoving = false;
+            document.getElementById("blocker").classList.remove("active");
+        }
+
+        function openModal(index) {
+            const event = events[index];
+            document.getElementById("event-tag").textContent = `EVENTO ${index + 1} DE ${events.length}`;
+            document.getElementById("event-title").textContent = event.title;
+            document.getElementById("event-desc").textContent = event.desc;
+
+            const img = document.getElementById("event-image");
+            const placeholder = document.getElementById("image-placeholder");
+            document.getElementById("placeholder-file").textContent = `Adicione: ${event.img}`;
+
+            img.style.display = "none";
+            img.src = event.img;
+            img.onload = () => {
+                img.style.display = "block";
+                placeholder.style.display = "none";
+            };
+            img.onerror = () => {
+                img.style.display = "none";
+                placeholder.style.display = "grid";
+            };
+
+            document.getElementById("prev-btn").disabled = index === 0;
+            document.getElementById("next-btn").disabled = index === events.length - 1;
+            modalEl.classList.add("show");
+        }
+
+        function closeModal() {
+            modalEl.classList.remove("show");
+        }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        document.getElementById("fullscreen-btn").addEventListener("click", toggleFullscreen);
+        document.getElementById("close-modal").addEventListener("click", closeModal);
+        document.getElementById("prev-btn").addEventListener("click", () => goToEvent(currentEventIndex - 1));
+        document.getElementById("next-btn").addEventListener("click", () => goToEvent(currentEventIndex + 1));
+
+        modalEl.addEventListener("click", (event) => {
+            if (event.target === modalEl) closeModal();
+        });
+
+        document.addEventListener("fullscreenchange", () => {
+            const fsIcon = document.getElementById("fs-icon");
+            const fsLabel = document.getElementById("fs-label");
+            if (document.fullscreenElement) {
+                fsIcon.textContent = "⛶";
+                fsLabel.textContent = "Sair da Tela Cheia";
+            } else {
+                fsIcon.textContent = "⛶";
+                fsLabel.textContent = "Tela Cheia";
+            }
+            setTimeout(() => map.invalidateSize(), 120);
+        });
+
+        drawRoute();
+        createEventMarkers();
+        const routeBounds = L.latLngBounds([[startPoint.lat, startPoint.lng], ...events.map((e) => [e.lat, e.lng])]);
+        map.fitBounds(routeBounds.pad(0.18), { paddingTopLeft: [40, 120], paddingBottomRight: [40, 40] });
+        updateProgress();
+
+        window.addEventListener("resize", () => map.invalidateSize());
+    </script>
+</body>
+</html>
+
